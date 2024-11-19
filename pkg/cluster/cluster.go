@@ -93,9 +93,9 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 	pList := []*Project{}
 	for _, p := range projects.Items {
 		// skip default projects before listing their prtb or roles
-		if p.Spec.DisplayName == "Default" || p.Spec.DisplayName == "System" {
-			continue
-		}
+		//if p.Spec.DisplayName == "Default" || p.Spec.DisplayName == "System" {
+		//	continue
+		//}
 		// prtbs
 		if err := client.ProjectRoleTemplateBindings.List(ctx, p.Name, &projectRoleTemplateBindings, v1.ListOptions{}); err != nil {
 			return err
