@@ -26,9 +26,9 @@ bin/
 # Debug
 __debug*
 .vscode/
-cattle-drive
+# cattle-drive
 dist/
 
 # tui log file
 cattle-drive.log
-
+*.idea
