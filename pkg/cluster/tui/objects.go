@@ -51,6 +51,13 @@ func InitObjects(i item) *Objects {
 			i := item{title: title, desc: "permissions: (" + strings.Join(grbNames, ",") + ")", status: status, objType: constants.UserType, obj: user}
 			items = append(items, i)
 		}
+	case "roleTemplates":
+		title = "Rancher RoleTemplates"
+		for _, roleTemplate := range constants.SC.ToMigrate.RoleTemplates {
+			title, status := status(roleTemplate.Obj.DisplayName, roleTemplate.Migrated, roleTemplate.Diff)
+			i := item{title: title, status: status, objType: constants.RoleTemplateType, obj: roleTemplate}
+			items = append(items, i)
+		}
 	case "project":
 		// in case of individual project then we will list namespaces and prtbs
 		project := i.obj.(*cluster.Project)

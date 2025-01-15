@@ -77,6 +77,7 @@ func newClusterList() []list.Item {
 	}
 	if constants.TC.ExternalRancher || constants.SC.ExternalRancher {
 		items = append(items, item{title: "Users", desc: "Rancher Users", objType: constants.UsersType, obj: nil})
+		items = append(items, item{title: "RoleTemplates", desc: "Rancher RoleTemplates", objType: constants.RoleTemplatesType, obj: nil})
 	}
 	return items
 }

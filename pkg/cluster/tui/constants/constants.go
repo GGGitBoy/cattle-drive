@@ -20,18 +20,20 @@ const (
 	WrongSpec = "(Wrong fields)"
 
 	/* Object Types */
-	ProjectsType   = "projects"
-	CRTBsType      = "crtbs"
-	NamespacesType = "namespaces"
-	PRTBsType      = "prtbs"
-	ReposType      = "repos"
-	ProjectType    = "project"
-	CRTBType       = "crtb"
-	NamespaceType  = "namespace"
-	PRTBType       = "prtb"
-	RepoType       = "repo"
-	UsersType      = "users"
-	UserType       = "user"
+	ProjectsType      = "projects"
+	CRTBsType         = "crtbs"
+	NamespacesType    = "namespaces"
+	PRTBsType         = "prtbs"
+	ReposType         = "repos"
+	ProjectType       = "project"
+	CRTBType          = "crtb"
+	NamespaceType     = "namespace"
+	PRTBType          = "prtb"
+	RepoType          = "repo"
+	UsersType         = "users"
+	UserType          = "user"
+	RoleTemplatesType = "roleTemplates"
+	RoleTemplateType  = "roleTemplate"
 )
 
 type MigrationStatus int

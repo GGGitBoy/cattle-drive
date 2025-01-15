@@ -27,9 +27,10 @@ type ToMigrate struct {
 	Projects []*Project
 	CRTBs    []*ClusterRoleTemplateBinding
 	// apps related objects
-	ClusterRepos []*ClusterRepo
-	Apps         []*App
-	Users        []*User
+	ClusterRepos  []*ClusterRepo
+	Apps          []*App
+	Users         []*User
+	RoleTemplates []*RoleTemplate
 }
 
 // Populate will fill in the objects to be migrated
@@ -39,6 +40,7 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 		projectRoleTemplateBindings v3.ProjectRoleTemplateBindingList
 		clusterRoleTemplateBindings v3.ClusterRoleTemplateBindingList
 		users                       v3.UserList
+		roleTemplates               v3.RoleTemplateList
 		repos                       v1catalog.ClusterRepoList
 		grbs                        v3.GlobalRoleBindingList
 	)
@@ -55,7 +57,7 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 			}
 		}
 		if c.ExternalRancher {
-			if user.Name == c.Obj.Annotations["field.cattle.io/creatorId"] {
+			if (user.Name == c.Obj.Annotations["field.cattle.io/creatorId"]) || (c.Obj.Name == "local" && user.Username == "admin") {
 				// use the cluster creator user as the default admin for any new project
 				c.DefaultAdmin = user.DeepCopy()
 			}
@@ -78,9 +80,26 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 			u := newUser(user, grbList)
 			u.normalize()
 			usersList = append(usersList, u)
-
 		}
 	}
+
+	// roleTemplate
+	if err := client.RoleTemplate.List(ctx, "", &roleTemplates, v1.ListOptions{}); err != nil {
+		return err
+	}
+	roleTemplateList := []*RoleTemplate{}
+	for _, roleTemplate := range roleTemplates.Items {
+		if c.ExternalRancher {
+			if roleTemplate.Builtin {
+				continue
+			}
+			// populate users
+			r := newRoleTemplate(roleTemplate)
+			r.normalize()
+			roleTemplateList = append(roleTemplateList, r)
+		}
+	}
+
 	// namespaces
 	namespaces, err := c.Client.Namespace.List(v1.ListOptions{})
 	if err != nil {
@@ -93,9 +112,9 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 	pList := []*Project{}
 	for _, p := range projects.Items {
 		// skip default projects before listing their prtb or roles
-		if p.Spec.DisplayName == "Default" || p.Spec.DisplayName == "System" {
-			continue
-		}
+		//if p.Spec.DisplayName == "Default" || p.Spec.DisplayName == "System" {
+		//	continue
+		//}
 		// prtbs
 		if err := client.ProjectRoleTemplateBindings.List(ctx, p.Name, &projectRoleTemplateBindings, v1.ListOptions{}); err != nil {
 			return err
@@ -157,10 +176,11 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 	}
 
 	c.ToMigrate = ToMigrate{
-		Projects:     pList,
-		CRTBs:        crtbList,
-		ClusterRepos: reposList,
-		Users:        usersList,
+		Projects:      pList,
+		CRTBs:         crtbList,
+		ClusterRepos:  reposList,
+		Users:         usersList,
+		RoleTemplates: roleTemplateList,
 	}
 	return nil
 }
@@ -182,6 +202,16 @@ func (c *Cluster) Compare(ctx context.Context, tc *Cluster) error {
 			}
 		}
 	}
+
+	// roleTemplates
+	for _, sRoleTemplate := range c.ToMigrate.RoleTemplates {
+		for _, tRoleTemplate := range tc.ToMigrate.RoleTemplates {
+			if sRoleTemplate.Name == tRoleTemplate.Name && sRoleTemplate.Obj.DisplayName == tRoleTemplate.Obj.DisplayName {
+				sRoleTemplate.Migrated = true
+			}
+		}
+	}
+
 	// projects
 	for _, sProject := range c.ToMigrate.Projects {
 		for _, tProject := range tc.ToMigrate.Projects {
@@ -265,6 +295,11 @@ func (c *Cluster) Status(ctx context.Context) error {
 				print(grb.Name+": "+grb.Description, grb.Migrated, grb.Diff, 1)
 			}
 		}
+
+		fmt.Printf("RoleTemplates status:\n")
+		for _, r := range c.ToMigrate.RoleTemplates {
+			print(r.Obj.DisplayName, r.Migrated, r.Diff, 0)
+		}
 	}
 
 	fmt.Printf("Project status:\n")
@@ -297,8 +332,8 @@ func (c *Cluster) Status(ctx context.Context) error {
 
 func (c *Cluster) Migrate(ctx context.Context, client *client.Clients, tc *Cluster, w io.Writer) error {
 	fmt.Fprintf(w, "Migrating Objects from cluster [%s] to cluster [%s]:\n", c.Obj.Spec.DisplayName, tc.Obj.Spec.DisplayName)
-	// users
 	if c.ExternalRancher {
+		// users
 		for _, u := range c.ToMigrate.Users {
 			if !u.Migrated {
 				fmt.Fprintf(w, "- migrating User [%s]... ", u.Obj.Username)
@@ -313,6 +348,19 @@ func (c *Cluster) Migrate(ctx context.Context, client *client.Clients, tc *Clust
 					if err := client.GlobalRoleBindings.Create(ctx, "", grb.Obj, nil, v1.CreateOptions{}); err != nil {
 						return err
 					}
+				}
+				fmt.Fprintf(w, "Done.\n")
+			}
+		}
+
+		// roleTemplates
+		for _, r := range c.ToMigrate.RoleTemplates {
+			if !r.Migrated {
+				fmt.Fprintf(w, "- migrating RoleTemplate [%s]... ", r.Obj.DisplayName)
+
+				r.Mutate()
+				if err := client.RoleTemplate.Create(ctx, "", r.Obj, nil, v1.CreateOptions{}); err != nil {
+					return err
 				}
 				fmt.Fprintf(w, "Done.\n")
 			}

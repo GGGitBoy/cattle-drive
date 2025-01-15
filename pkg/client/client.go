@@ -20,6 +20,7 @@ type Clients struct {
 	ClusterRoleTemplateBindings *client.Client
 	ClusterRegistrationTokens   *client.Client
 	Users                       *client.Client
+	RoleTemplate                *client.Client
 	ClusterRepos                *client.Client
 	GlobalRoleBindings          *client.Client
 	ConfigMaps                  v1.ConfigMapClient
@@ -53,6 +54,7 @@ func New(ctx context.Context, rest *rest.Config) (*Clients, error) {
 		ConfigMaps:                  clients.Core.ConfigMap(),
 		Namespace:                   clients.Core.Namespace(),
 		Users:                       NewClient(factory, "management.cattle.io", "v3", "users", "User", false),
+		RoleTemplate:                NewClient(factory, "management.cattle.io", "v3", "roleTemplates", "RoleTemplate", false),
 		Clusters:                    NewClient(factory, "management.cattle.io", "v3", "clusters", "Cluster", false),
 		Projects:                    NewClient(factory, "management.cattle.io", "v3", "projects", "Project", true),
 		ProjectRoleTemplateBindings: NewClient(factory, "management.cattle.io", "v3", "projectRoleTemplateBindings", "ProjectRoleTemplateBinding", true),
