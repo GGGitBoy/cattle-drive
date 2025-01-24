@@ -367,26 +367,6 @@ func (c *Cluster) Status(ctx context.Context) error {
 func (c *Cluster) Migrate(ctx context.Context, client *client.Clients, tc *Cluster, w io.Writer) error {
 	fmt.Fprintf(w, "Migrating Objects from cluster [%s] to cluster [%s]:\n", c.Obj.Spec.DisplayName, tc.Obj.Spec.DisplayName)
 	if c.ExternalRancher {
-		// users
-		for _, u := range c.ToMigrate.Users {
-			if !u.Migrated {
-				fmt.Fprintf(w, "- migrating User [%s]... ", u.Obj.Username)
-
-				u.Mutate()
-				if err := client.Users.Create(ctx, "", u.Obj, nil, v1.CreateOptions{}); err != nil {
-					return err
-				}
-				// migrating all grbs for this user
-				for _, grb := range u.GlobalRoleBindings {
-					grb.Mutate()
-					if err := client.GlobalRoleBindings.Create(ctx, "", grb.Obj, nil, v1.CreateOptions{}); err != nil {
-						return err
-					}
-				}
-				fmt.Fprintf(w, "Done.\n")
-			}
-		}
-
 		// roleTemplates
 		for _, r := range c.ToMigrate.RoleTemplates {
 			if !r.Migrated {
@@ -408,6 +388,26 @@ func (c *Cluster) Migrate(ctx context.Context, client *client.Clients, tc *Clust
 				g.Mutate()
 				if err := client.GlobalRole.Create(ctx, "", g.Obj, nil, v1.CreateOptions{}); err != nil {
 					return err
+				}
+				fmt.Fprintf(w, "Done.\n")
+			}
+		}
+
+		// users
+		for _, u := range c.ToMigrate.Users {
+			if !u.Migrated {
+				fmt.Fprintf(w, "- migrating User [%s]... ", u.Obj.Username)
+
+				u.Mutate()
+				if err := client.Users.Create(ctx, "", u.Obj, nil, v1.CreateOptions{}); err != nil {
+					return err
+				}
+				// migrating all grbs for this user
+				for _, grb := range u.GlobalRoleBindings {
+					grb.Mutate()
+					if err := client.GlobalRoleBindings.Create(ctx, "", grb.Obj, nil, v1.CreateOptions{}); err != nil {
+						return err
+					}
 				}
 				fmt.Fprintf(w, "Done.\n")
 			}
