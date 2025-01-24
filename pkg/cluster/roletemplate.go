@@ -39,5 +39,9 @@ func (r *RoleTemplate) Mutate() {
 		if strings.Contains(annotation, cleanUpAnnotationPrefix) {
 			delete(r.Obj.Annotations, annotation)
 		}
+
+		if strings.Contains(annotation, "field.cattle.io/creatorId") {
+			delete(r.Obj.Annotations, annotation)
+		}
 	}
 }
