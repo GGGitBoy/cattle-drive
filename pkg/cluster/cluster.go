@@ -31,6 +31,7 @@ type ToMigrate struct {
 	Apps          []*App
 	Users         []*User
 	RoleTemplates []*RoleTemplate
+	GlobalRoles   []*GlobalRole
 }
 
 // Populate will fill in the objects to be migrated
@@ -40,6 +41,7 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 		projectRoleTemplateBindings v3.ProjectRoleTemplateBindingList
 		clusterRoleTemplateBindings v3.ClusterRoleTemplateBindingList
 		users                       v3.UserList
+		grs                         v3.GlobalRoleList
 		roleTemplates               v3.RoleTemplateList
 		repos                       v1catalog.ClusterRepoList
 		grbs                        v3.GlobalRoleBindingList
@@ -87,16 +89,33 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 	if err := client.RoleTemplate.List(ctx, "", &roleTemplates, v1.ListOptions{}); err != nil {
 		return err
 	}
-	roleTemplateList := []*RoleTemplate{}
+	var roleTemplateList []*RoleTemplate
 	for _, roleTemplate := range roleTemplates.Items {
 		if c.ExternalRancher {
 			if roleTemplate.Builtin {
 				continue
 			}
-			// populate users
+			// populate roleTemplate
 			r := newRoleTemplate(roleTemplate)
 			r.normalize()
 			roleTemplateList = append(roleTemplateList, r)
+		}
+	}
+
+	// globalrole
+	if err := client.GlobalRole.List(ctx, "", &grs, v1.ListOptions{}); err != nil {
+		return err
+	}
+	var grList []*GlobalRole
+	for _, gr := range grs.Items {
+		if c.ExternalRancher {
+			if gr.Builtin {
+				continue
+			}
+			// populate globalrole
+			r := newGR(gr)
+			r.normalize()
+			grList = append(grList, r)
 		}
 	}
 
@@ -181,6 +200,7 @@ func (c *Cluster) Populate(ctx context.Context, client *client.Clients) error {
 		ClusterRepos:  reposList,
 		Users:         usersList,
 		RoleTemplates: roleTemplateList,
+		GlobalRoles:   grList,
 	}
 	return nil
 }
@@ -208,6 +228,15 @@ func (c *Cluster) Compare(ctx context.Context, tc *Cluster) error {
 		for _, tRoleTemplate := range tc.ToMigrate.RoleTemplates {
 			if sRoleTemplate.Name == tRoleTemplate.Name && sRoleTemplate.Obj.DisplayName == tRoleTemplate.Obj.DisplayName {
 				sRoleTemplate.Migrated = true
+			}
+		}
+	}
+
+	// roleTemplates
+	for _, sGlobalRole := range c.ToMigrate.GlobalRoles {
+		for _, tGlobalRole := range tc.ToMigrate.GlobalRoles {
+			if sGlobalRole.Name == tGlobalRole.Name && sGlobalRole.Obj.DisplayName == tGlobalRole.Obj.DisplayName {
+				sGlobalRole.Migrated = true
 			}
 		}
 	}
@@ -300,6 +329,11 @@ func (c *Cluster) Status(ctx context.Context) error {
 		for _, r := range c.ToMigrate.RoleTemplates {
 			print(r.Obj.DisplayName, r.Migrated, r.Diff, 0)
 		}
+
+		fmt.Printf("GlobalRole status:\n")
+		for _, g := range c.ToMigrate.GlobalRoles {
+			print(g.Obj.DisplayName, g.Migrated, g.Diff, 0)
+		}
 	}
 
 	fmt.Printf("Project status:\n")
@@ -360,6 +394,19 @@ func (c *Cluster) Migrate(ctx context.Context, client *client.Clients, tc *Clust
 
 				r.Mutate()
 				if err := client.RoleTemplate.Create(ctx, "", r.Obj, nil, v1.CreateOptions{}); err != nil {
+					return err
+				}
+				fmt.Fprintf(w, "Done.\n")
+			}
+		}
+
+		// globalRoles
+		for _, g := range c.ToMigrate.GlobalRoles {
+			if !g.Migrated {
+				fmt.Fprintf(w, "- migrating GlobalRole [%s]... ", g.Obj.DisplayName)
+
+				g.Mutate()
+				if err := client.GlobalRole.Create(ctx, "", g.Obj, nil, v1.CreateOptions{}); err != nil {
 					return err
 				}
 				fmt.Fprintf(w, "Done.\n")

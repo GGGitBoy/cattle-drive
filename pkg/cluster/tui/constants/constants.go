@@ -34,6 +34,8 @@ const (
 	UserType          = "user"
 	RoleTemplatesType = "roleTemplates"
 	RoleTemplateType  = "roleTemplate"
+	GlobalRolesType   = "globalRoles"
+	GlobalRoleType    = "globalRole"
 )
 
 type MigrationStatus int

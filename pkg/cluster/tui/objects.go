@@ -58,6 +58,13 @@ func InitObjects(i item) *Objects {
 			i := item{title: title, status: status, objType: constants.RoleTemplateType, obj: roleTemplate}
 			items = append(items, i)
 		}
+	case "globalRoles":
+		title = "Rancher GlobalRoles"
+		for _, globalRole := range constants.SC.ToMigrate.GlobalRoles {
+			title, status := status(globalRole.Obj.DisplayName, globalRole.Migrated, globalRole.Diff)
+			i := item{title: title, status: status, objType: constants.GlobalRoleType, obj: globalRole}
+			items = append(items, i)
+		}
 	case "project":
 		// in case of individual project then we will list namespaces and prtbs
 		project := i.obj.(*cluster.Project)
